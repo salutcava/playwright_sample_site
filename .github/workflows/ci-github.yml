@@ -13,6 +13,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,4 +33,4 @@ jobs:
         uses: actions/deploy-pages@v4
       
       - name: Display URL
-        run: echo "Site deployed at https://salutcava.github.io/playwright_sample_site/"
+        run: echo "Site deployed at ${{ steps.deploy.outputs.page_url }}"
