@@ -28,3 +28,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      
+      - name: Display URL
+        run: echo "Site deployed at https://salutcava.github.io/playwright_sample_site/"
