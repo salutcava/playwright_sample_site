@@ -38,24 +38,93 @@ jobs:
       - name: Display URL
         run: echo "Site deployed at https://salutcava.github.io/playwright_sample_site/"
 
-  trigger-e2e-tests:
+  e2e-tests:
     needs: deploy
     runs-on: ubuntu-latest
+    outputs:
+      workflow-run-id: ${{ steps.trigger.outputs.run-id }}
+      workflow-conclusion: ${{ steps.wait.outputs.conclusion }}
     steps:
       - name: Trigger E2E Tests
+        id: trigger
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PWS_PAT }}
           script: |
+            // Déclencher le workflow
             await github.rest.actions.createWorkflowDispatch({
               owner: 'salutcava',
               repo: 'playwright_sample_e2e',
-              workflow_id: 'e2e-tests.yml',
+              workflow_id: 'playwright.yml',
               ref: 'main',
-              inputs: {
-                site_url: 'https://salutcava.github.io/playwright_sample_site/',
-                source_branch: '${{ github.ref_name }}',
-                source_sha: '${{ github.sha }}',
-                source_repo: '${{ github.repository }}'
+            });
+            
+            // Attendre un peu que le workflow démarre
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // Trouver le workflow run qui vient de démarrer
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: 'salutcava',
+              repo: 'playwright_sample_e2e',
+              workflow_id: 'playwright.yml',
+              per_page: 5
+            });
+            
+            // Trouver le run le plus récent (celui qu'on vient de créer)
+            const latestRun = runs.data.workflow_runs[0];
+            console.log(`Workflow run ID: ${latestRun.id}`);
+            console.log(`Workflow run URL: ${latestRun.html_url}`);
+            
+            core.setOutput('run-id', latestRun.id);
+            core.setOutput('run-url', latestRun.html_url);
+      
+      - name: Wait for E2E workflow to complete
+        id: wait
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PWS_PAT }}
+          script: |
+            const runId = '${{ steps.trigger.outputs.run-id }}';
+            const maxWaitTime = 20 * 60 * 1000; // 20 minutes max
+            const pollInterval = 10000; // Vérifier toutes les 10 secondes
+            const startTime = Date.now();
+            
+            console.log(`Attente de la fin du workflow run #${runId}...`);
+            
+            while (Date.now() - startTime < maxWaitTime) {
+              const { data: run } = await github.rest.actions.getWorkflowRun({
+                owner: 'salutcava',
+                repo: 'playwright_sample_e2e',
+                run_id: runId
+              });
+              
+              console.log(`Status: ${run.status}, Conclusion: ${run.conclusion}`);
+              
+              if (run.status === 'completed') {
+                console.log(`✅ Workflow terminé avec le statut: ${run.conclusion}`);
+                core.setOutput('conclusion', run.conclusion);
+                core.setOutput('status', run.status);
+                
+                if (run.conclusion === 'success') {
+                  console.log('🎉 Tests E2E réussis !');
+                } else {
+                  console.log(`❌ Tests E2E échoués: ${run.conclusion}`);
+                  core.setFailed(`E2E tests failed with conclusion: ${run.conclusion}`);
+                }
+                
+                return;
               }
-            })
+              
+              // Attendre avant la prochaine vérification
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
+            
+            // Timeout
+            core.setFailed('Timeout: E2E workflow did not complete in 20 minutes');
+      
+      - name: Display E2E Results
+        if: always()
+        run: |
+          echo "🔗 E2E Workflow URL: ${{ steps.trigger.outputs.run-url }}"
+          echo "📊 E2E Status: ${{ steps.wait.outputs.status }}"
+          echo "✅ E2E Conclusion: ${{ steps.wait.outputs.conclusion }}"
