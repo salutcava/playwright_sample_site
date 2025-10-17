@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - main
-      - fix
       - bug
+      - fix
   workflow_dispatch:
 
 permissions:
@@ -37,3 +37,25 @@ jobs:
       
       - name: Display URL
         run: echo "Site deployed at https://salutcava.github.io/playwright_sample_site/"
+
+  trigger-e2e-tests:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger E2E Tests
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PWS_PAT }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'salutcava',
+              repo: 'playwright_sample_e2e',
+              workflow_id: 'e2e-tests.yml',
+              ref: 'main',
+              inputs: {
+                site_url: 'https://salutcava.github.io/playwright_sample_site/',
+                source_branch: '${{ github.ref_name }}',
+                source_sha: '${{ github.sha }}',
+                source_repo: '${{ github.repository }}'
+              }
+            })
