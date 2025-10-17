@@ -6,6 +6,7 @@ on:
       - main
       - bug
       - fix
+  workflow_dispatch:
 
 permissions:
   contents: read
