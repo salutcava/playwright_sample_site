@@ -57,12 +57,6 @@ jobs:
               repo: 'playwright_sample_e2e',
               workflow_id: 'playwright.yml',
               ref: 'main',
-              inputs: {
-                site_url: 'https://salutcava.github.io/playwright_sample_site/',
-                source_branch: '${{ github.ref_name }}',
-                source_sha: '${{ github.sha }}',
-                source_repo: '${{ github.repository }}'
-              }
             });
             
             // Attendre un peu que le workflow démarre
@@ -72,7 +66,7 @@ jobs:
             const runs = await github.rest.actions.listWorkflowRuns({
               owner: 'salutcava',
               repo: 'playwright_sample_e2e',
-              workflow_id: 'e2e-tests.yml',
+              workflow_id: 'playwright.yml',
               per_page: 5
             });
             
